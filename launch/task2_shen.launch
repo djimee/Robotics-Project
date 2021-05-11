@@ -1,4 +1,0 @@
-<launch>
-    <node pkg="team32" type="task2.py" name="find_target_colour" output="screen">
-    </node>
-</launch>
