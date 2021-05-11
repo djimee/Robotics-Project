@@ -1,4 +1,4 @@
 <launch>
-    <node pkg="team32" type="colour_search.py" name="turn_and_face" output="screen">
+    <node pkg="team32" type="colour_search_molly.py" name="turn_and_face" output="screen">
     </node>
 </launch>
