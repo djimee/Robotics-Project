@@ -1,6 +1,6 @@
 <launch>
-    <node name="search_action_server" pkg="team32" type="task1_server.py" output="screen">
+    <node pkg="team32" type="task1_server.py" name="search_action_server" output="screen">
     </node>
-    <node name="search_action_client" pkg="team32" type="task1_client.py" output="screen">
+    <node pkg="team32" type="task1_client.py" name="search_action_client" output="screen">
     </node>
 </launch>
