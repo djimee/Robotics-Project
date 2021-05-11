@@ -3,6 +3,8 @@
 # Import the core Python modules for ROS and to implement ROS Actions:
 import rospy
 
+import argparse
+
 # Import some image processing modules:
 import cv2
 from cv_bridge import CvBridge
@@ -13,9 +15,6 @@ from sensor_msgs.msg import Image
 # Import some other modules from within this package
 from move_tb3 import MoveTB3
 
-# Import the Twist message type from the geometry_msgs package:
-from geometry_msgs.msg import Twist
-
 import time
 
 class colour_search(object):
@@ -24,12 +23,6 @@ class colour_search(object):
 
 
         rospy.init_node('turn_and_face')
-
-        self.pub = rospy.Publisher('cmd_vel', Twist, queue_size=10)
-        self.rate = rospy.Rate(10) # hz
-
-        # create a Twist message instance to populate with velocity commands:
-        self.vel_cmd = Twist()
 
         self.base_image_path = '/home/student/myrosdata/week6_images'
         self.camera_subscriber = rospy.Subscriber("/camera/rgb/image_raw",
@@ -42,7 +35,7 @@ class colour_search(object):
         self.robot_controller.set_move_cmd(0.0, self.turn_vel_fast)
 
         self.move_rate = '' # fast, slow or stop
-        self.threshold_colour= '' # blue, red, green or turquoise
+        self.target_colour= '' # blue, red, green or turquoise
 
         self.ctrl_c = False
         rospy.on_shutdown(self.shutdown_ops)
@@ -52,17 +45,10 @@ class colour_search(object):
         self.m00 = 0
         self.m00_min = 10000
 
-        self.blue_lower_threshold = (115, 225, 100)
-        self.blue_upper_threshold = (130, 255, 255)
-
-        self.red_lower_threshold = (0, 185, 100)
-        self.red_upper_threshold = (10, 255, 255)
-
-        self.green_lower_threshold = (25, 150, 100)
-        self.green_upper_threshold = (70, 255, 255)
-
-        self.turquoise_lower_threshold = (75, 150, 100)
-        self.turquoise_upper_threshold = (100, 255, 255)
+        self.lower = [(115, 224, 100), (0, 185, 100), (28,128,100), (25, 150, 100), (75, 150, 100), (145,162,100)]
+        self.upper = [(130, 255, 255), (10, 255, 255), (31,253,255), (70, 255, 255), (100, 255, 255), (154,255,255)]
+        self.target_colour = 'none'
+        self.expected_colour = ["blue", "red", "yellow", "green", "turquoise", "purple"]
 
     def shutdown_ops(self):
         self.robot_controller.stop()
@@ -82,23 +68,16 @@ class colour_search(object):
         crop_y = int((height/2) - (crop_height/2))
 
         crop_img = cv_img[crop_y:crop_y+crop_height, crop_x:crop_x+crop_width]
-        hsv_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2HSV)
+        self.hsv_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2HSV)
 
-        if self.threshold_colour == 'blue':
-            mask = cv2.inRange(hsv_img, self.blue_lower_threshold, self.blue_upper_threshold)
-        elif self.threshold_colour == 'red':
-            mask = cv2.inRange(hsv_img, self.red_lower_threshold, self.red_upper_threshold)
-        elif self.threshold_colour == 'turquoise':
-            mask = cv2.inRange(hsv_img, self.green_lower_threshold, self.green_upper_threshold)
-        else:
-            mask = cv2.inRange(hsv_img, self.green_lower_threshold, self.green_upper_threshold)
-
-        m = cv2.moments(mask)
-        self.m00 = m['m00']
-        self.cy = m['m10'] / (m['m00'] + 1e-5)
-
-        if self.m00 > self.m00_min:
-            cv2.circle(crop_img, (int(self.cy), 200), 10, (0, 0, 255), 2)
+        if self.target_colour != "none":
+            i = self.expected_colour.index(self.target_colour)
+            mask = cv2.inRange(self.hsv_img, self.lower[i], self.upper[i])
+            m = cv2.moments(mask)
+            self.m00 = m['m00']
+            self.cy = m['m10'] / (m['m00'] + 1e-5)
+            if self.m00 > self.m00_min:
+                cv2.circle(crop_img, (int(self.cy), 200), 10, (0, 0, 255), 2)
 
         cv2.imshow('cropped image', crop_img)
         cv2.waitKey(1)
@@ -109,16 +88,24 @@ class colour_search(object):
         self.state_change_time = time.time()
         while not self.ctrl_c:
 
-
-
             #Turn left, detect wall colour, and turn right to face forward again
             if self.state == "turn_left" and (time.time() - self.state_change_time) < 3:
                 self.robot_controller.set_move_cmd(0.0,0.5)
 
             elif (time.time() - self.state_change_time) >= 3 and self.state == "turn_left":
-                self.state = "turn_right"
+                self.state = "detect_target_colour"
                 self.state_change_time = time.time()
                 self.robot_controller.set_move_cmd(0.0,0.0)
+
+            elif self.state == "detect_target_colour":
+                for i in range(6):
+                    mask = cv2.inRange(self.hsv_img, self.lower[i], self.upper[i])
+                    m = cv2.moments(mask)
+                    self.m00 = m['m00']
+                    if self.m00 > self.m00_min:
+                        self.target_colour = self.expected_colour[i]
+                        print("SEARCH INITIATED: The target colour is {}.".format(self.target_colour))
+                        self.state = "turn_right"
 
             elif self.state == "turn_right" and (time.time() - self.state_change_time) < 3:
                 self.robot_controller.set_move_cmd(0.0,-0.5)
@@ -146,6 +133,7 @@ class colour_search(object):
                 self.state_change_time = time.time()
                 self.robot_controller.set_move_cmd(0.0,0.0)
 
+            #Search for the correct pillar
             elif self.state == "detect_pillar":
 
                 if self.m00 > self.m00_min:
@@ -168,7 +156,6 @@ class colour_search(object):
                     print("SEARCH COMPLETE: The robot is now facing the target pillar.".format(self.cy))
                     self.robot_controller.set_move_cmd(0.0, 0.0)
 
-            self.pub.publish(self.vel_cmd)
             self.robot_controller.publish()
             self.rate.sleep()
 
