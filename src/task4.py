@@ -64,7 +64,8 @@ class Task4(object):
             self.change_vels(0, -1.0)
 
         # wait for the robot to do a 90deg turn
-        rospy.sleep(pi/2)
+        # minus 0.055 seconds because ROS overturns
+        rospy.sleep((pi/2)-0.055)
         self.robot_controller.stop()
 
     # method to move the robot forward and re-adjust
@@ -97,10 +98,10 @@ class Task4(object):
     # system main loop
     def main_loop(self):
         # turning truth table
-        # (https://www.allaboutcircuits.com/projects/how-to-build-a-robot-follow-walls/
         # notF = move forwards
         # F, R = turn left
         # F, L = turn right
+        # F, notR, notL = three-way turn
         while not self.ctrl_c:
             # set direction variables
             d_front = self.distance_front
