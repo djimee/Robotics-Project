@@ -29,12 +29,14 @@ from move_tb3 import MoveTB3
 import time
 
 
-class Task3(object):
+class Task1ActionServer(object):
     feedback = SearchFeedback()
     result = SearchResult()
 
     def __init__(self):
-        rospy.init_node('task3')
+        self.actionserver = actionlib.SimpleActionServer("/search_action_server",
+                                                         SearchAction, self.action_server_launcher, auto_start=False)
+        self.actionserver.start()
 
         self.scan_subscriber = rospy.Subscriber(
             "/scan", LaserScan, self.scan_callback)
@@ -88,7 +90,7 @@ class Task3(object):
 
         height, width, channels = cv_img.shape
         crop_width = width - 800
-        crop_height = 400
+        crop_height = 100
         crop_x = int((width/2) - (crop_width/2))
         crop_y = int((height/2) - (crop_height/2))
 
@@ -141,7 +143,7 @@ class Task3(object):
         self.robot_controller.set_move_cmd(linear, angular)
         self.robot_controller.publish()
 
-    def main_loop(self):
+    def action_server_launcher(self, goal):
         r = rospy.Rate(100)
         success = True
         if not success:
@@ -173,16 +175,30 @@ class Task3(object):
                 self.rate.sleep()
             self.robot_controller.set_move_cmd(0.0, 0.0)
 
+        # Get the current robot odometry to work out distance travelled:
+        self.posx0 = self.robot_odom.posx
+        self.posy0 = self.robot_odom.posy
+
         # system main loop
         while True:
             # set direction variables
-            d_goal = 0.75
+            d_goal = goal.approach_distance
             d_front = self.distance_front
             d_right = self.distance_right
             d_left = self.distance_left
 
+            if self.m00 > self.m00_min:
+                # blob detected
+                if self.cy >= 560-100 and self.cy <= 560+100:
+                    if self.move_rate == 'slow':
+                        self.move_rate = 'stop'
+                else:
+                    self.move_rate = 'slow'
+            else:
+                self.move_rate = 'fast'
+
             # true if there is a lot of space in front, left and to the right
-            if d_front > d_goal and d_left > d_goal and d_right > d_goal:
+            if self.move_rate == 'fast' and d_front > d_goal and d_left > d_goal and d_right > d_goal:
                 # check which side has more space, and change velocities depending on result
                 if d_left > d_right:
                     self.change_vels(0.4, 0.8)
@@ -192,19 +208,19 @@ class Task3(object):
                     #print("SPACE IN ALL DIRECTIONS - MOVING RIGHT")
 
             # true if there is a lot of space in front and to the left, but not to the right
-            elif d_front > d_goal and d_left > d_goal and d_right < d_goal:
+            elif self.move_rate == 'fast' and d_front > d_goal and d_left > d_goal and d_right < d_goal:
                 self.robot_controller.stop()
                 self.change_vels(0.5, 0.5)
                 #print("TURNING LEFT - STILL SPACE IN FRONT")
 
             # true if there is a lot of space in front and to the right, but not to the left
-            elif d_front > d_goal and d_left < d_goal and d_right > d_goal:
+            elif self.move_rate == 'fast' and d_front > d_goal and d_left < d_goal and d_right > d_goal:
                 self.robot_controller.stop()
                 self.change_vels(0.5, -0.5)
                 #print("TURNING RIGHT - STILL SPACE IN FRONT")
 
             # true if there is not a lot of space in any direction
-            elif d_front < d_goal and d_left < d_goal and d_right < d_goal:
+            elif self.move_rate == 'fast' and d_front < d_goal and d_left < d_goal and d_right < d_goal:
                 # check which side has more space, and change velocities depending on result
                 # reverse and turn because due to there being little space in front
                 self.robot_controller.stop()
@@ -218,7 +234,7 @@ class Task3(object):
                     #print("NOT MUCH SPACE IN ANY DIRECTION - TURNING RIGHT")
 
             # true if there is not a lot of space in front, but a lot of space to the left and right
-            elif d_front < d_goal and d_left > d_goal and d_right > d_goal:
+            elif self.move_rate == 'fast' and d_front < d_goal and d_left > d_goal and d_right > d_goal:
                 self.robot_controller.stop()
                 if d_left > d_right:
                     self.change_vels(0.05, 3.5)
@@ -228,7 +244,7 @@ class Task3(object):
                     #print("NOT MUCH SPACE IN FRONT - TURNING RIGHT")
 
             # true if there is a lot of space to the left and right, but not in front
-            elif d_front > d_goal and d_left < d_goal and d_right < d_goal:
+            elif self.move_rate == 'fast' and d_front > d_goal and d_left < d_goal and d_right < d_goal:
                 self.robot_controller.stop()
                 self.change_vels(0.2, 0)
                 #print("NOT A LOT OF SPACE IN FRONT - MOVING FORWARDS SLOWLY")
@@ -240,12 +256,25 @@ class Task3(object):
                 #print("TURNING LEFT - NOT MUCH SPACE IN FRONT")
 
             # true if there is a lot of space to the right, but not in front or the left
-            elif d_front < d_goal and d_left < d_goal and d_right > d_goal:
+            elif self.move_rate == 'fast' and d_front < d_goal and d_left < d_goal and d_right > d_goal:
                 self.robot_controller.stop()
                 self.change_vels(0.1, -0.8)
                 #print("TURNING RIGHT - NOT MUCH SPACE IN FRONT")
+            elif self.move_rate == 'slow':
+                print("BEACON DETECTED: Beaconing initiated.")
+                self.robot_controller.stop()
+                self.change_vels(0.2, 0.0)
             else:
                 continue
+
+            # calculate total distance travelled
+            self.distance = sqrt(pow(
+                self.posx0 - self.robot_odom.posx, 2) + pow(self.posy0 - self.robot_odom.posy, 2))
+
+            # populate the feedback message and publish it:
+            self.feedback.current_distance_travelled = self.distance
+            self.actionserver.publish_feedback(self.feedback)
+
 
     # shutdownhook to allow ctrl+c to stop the program
     def shutdownhook(self):
@@ -254,8 +283,6 @@ class Task3(object):
 
 
 if __name__ == '__main__':
-    task3 = Task3()
-    try:
-        task3.main_loop()
-    except rospy.ROSInterruptException:
-        pass
+    rospy.init_node('search_action_server')
+    Task1ActionServer()
+    rospy.spin()
