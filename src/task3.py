@@ -244,9 +244,9 @@ class Task3(object):
                 #print("NOT A LOT OF SPACE IN FRONT - MOVING FORWARDS SLOWLY")
 
             # true if there is a lot of space to the left, but not in front or the right
-            elif d_front < d_goal and d_left > d_goal and d_right < d_goal:
+            elif self.move_rate == 'fast'  and d_front < d_goal and d_left > d_goal and d_right < d_goal:
                 self.robot_controller.stop()
-                self.change_vels(0.1, 0.7)
+                self.change_vels(0.1, 0.8)
                 #print("TURNING LEFT - NOT MUCH SPACE IN FRONT")
 
             # true if there is a lot of space to the right, but not in front or the left
@@ -258,9 +258,10 @@ class Task3(object):
                 print("BEACON DETECTED: Beaconing initiated.")
                 self.robot_controller.stop()
                 self.change_vels(0.3, 0.0)
-                if d_front < 0.45 or d_left < 0.45 or d_right < 0.45:
+                if d_front < 0.5 or d_left < 0.2 or d_right < 0.2:
                     print("BEACONING COMPLETE: The robot has now stopped.")
                     self.robot_controller.stop()
+                    self.change_vels(0.0, 0.0)
                     self.searching = False
             else:
                 continue
