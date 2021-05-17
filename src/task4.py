@@ -14,6 +14,7 @@ from tb3_odometry import TB3Odometry
 
 # Import some other useful Python Modules
 from math import pi, radians
+import numpy as np
 
 
 class Task4(object):
@@ -69,8 +70,8 @@ class Task4(object):
     # method to move the robot forward and re-adjust
     def recentre(self, d_left, d_right):
         print("re-centering robot")
-
-        # set robots target angle
+        
+        # set robots target angle 
         curr_angle = self.robot_odom.yaw
         target_angle = 0
         if abs(curr_angle) < 45:
@@ -82,17 +83,20 @@ class Task4(object):
         elif curr_angle < -45 and curr_angle > -135:
             target_angle = -90
 
-        # re-centre robot and adjust angular velocity
         angular_vel = radians(target_angle - curr_angle)
+
+        # re-centre robot
         if d_right < 0.25:
-            angular_vel += 0.3
+            angular_vel += 0.4
         elif d_left < 0.25:
-            angular_vel -= 0.3
+            angular_vel -= 0.4
+
+        # adjust angular velocity to re-centre
         self.change_vels(0.25, angular_vel)
 
     # system main loop
     def main_loop(self):
-        # turning truth table:
+        # turning truth table
         # (https://www.allaboutcircuits.com/projects/how-to-build-a-robot-follow-walls/
         # notF = move forwards
         # F, R = turn left
@@ -109,17 +113,17 @@ class Task4(object):
                 self.recentre(d_left, d_right)
 
             # if front and left walls too close, turn right
-            elif d_front < 0.5 and d_left < 0.6:
+            elif d_front < 0.6 and d_left < 0.55:
                 print("robot turning right")
                 self.turn("right")
 
             # if front and right walls too close turn left
-            elif (d_front < 0.5 and d_right < 0.6):
+            elif (d_front < 0.6 and d_right < 0.55):
                 print("robot turning left")
                 self.turn("left")
 
             # check for a three-way turn and turn accordingly
-            elif (d_front < 0.5 and d_right > 0.6 and d_left > 0.6):
+            elif (d_front < 0.6 and d_right > 0.55 and d_left > 0.55):
                 print("at a three-way turn")
                 if self.threeway_turn_num == 0:
                     print("robot turning left")
@@ -127,7 +131,6 @@ class Task4(object):
                     self.threeway_turn_num += 1
                 elif self.threeway_turn_num == 1:
                     print("robot turning right")
-                    self.change_vels(0.1, -0.3)
                     self.turn("right")
                     self.threeway_turn_num += 1
                 elif self.threeway_turn_num == 2:
