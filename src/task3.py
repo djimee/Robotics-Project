@@ -29,14 +29,12 @@ from move_tb3 import MoveTB3
 import time
 
 
-class Task1ActionServer(object):
+class Task3(object):
     feedback = SearchFeedback()
     result = SearchResult()
 
     def __init__(self):
-        self.actionserver = actionlib.SimpleActionServer("/search_action_server",
-                                                         SearchAction, self.action_server_launcher, auto_start=False)
-        self.actionserver.start()
+        rospy.init_node('task3')
 
         self.scan_subscriber = rospy.Subscriber(
             "/scan", LaserScan, self.scan_callback)
@@ -143,7 +141,7 @@ class Task1ActionServer(object):
         self.robot_controller.set_move_cmd(linear, angular)
         self.robot_controller.publish()
 
-    def action_server_launcher(self, goal):
+    def main_loop(self):
         r = rospy.Rate(100)
         success = True
         if not success:
@@ -175,14 +173,10 @@ class Task1ActionServer(object):
                 self.rate.sleep()
             self.robot_controller.set_move_cmd(0.0, 0.0)
 
-        # Get the current robot odometry to work out distance travelled:
-        self.posx0 = self.robot_odom.posx
-        self.posy0 = self.robot_odom.posy
-
         # system main loop
-        while True:
+        while self.searching:
             # set direction variables
-            d_goal = goal.approach_distance
+            d_goal = 0.6
             d_front = self.distance_front
             d_right = self.distance_right
             d_left = self.distance_left
@@ -263,17 +257,13 @@ class Task1ActionServer(object):
             elif self.move_rate == 'slow':
                 print("BEACON DETECTED: Beaconing initiated.")
                 self.robot_controller.stop()
-                self.change_vels(0.2, 0.0)
+                self.change_vels(0.3, 0.0)
+                if d_front < 0.45 or d_left < 0.45 or d_right < 0.45:
+                    print("BEACONING COMPLETE: The robot has now stopped.")
+                    self.robot_controller.stop()
+                    self.searching = False
             else:
                 continue
-
-            # calculate total distance travelled
-            self.distance = sqrt(pow(
-                self.posx0 - self.robot_odom.posx, 2) + pow(self.posy0 - self.robot_odom.posy, 2))
-
-            # populate the feedback message and publish it:
-            self.feedback.current_distance_travelled = self.distance
-            self.actionserver.publish_feedback(self.feedback)
 
 
     # shutdownhook to allow ctrl+c to stop the program
@@ -281,8 +271,9 @@ class Task1ActionServer(object):
         self.shutdown_function()
         self.ctrl_c = True
 
-
 if __name__ == '__main__':
-    rospy.init_node('search_action_server')
-    Task1ActionServer()
-    rospy.spin()
+    task3 = Task3()
+    try:
+        task3.main_loop()
+    except rospy.ROSInterruptException:
+        pass

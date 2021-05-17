@@ -1,4 +1,4 @@
 <launch>
-    <node pkg="team32" type="task3_server.py" name="task3" output="screen">
+    <node pkg="team32" type="task3.py" name="task3" output="screen">
     </node>
 </launch>
