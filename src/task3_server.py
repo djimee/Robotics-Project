@@ -60,8 +60,6 @@ class Task1ActionServer(object):
 
         self.cvbridge_interface = CvBridge()
 
-
-
         self.move_rate = ''  # fast, slow or stop
         self.target_colour = ''  # blue, red, yellow, green, turquoise or purple
         self.searching = True
@@ -263,8 +261,8 @@ class Task1ActionServer(object):
             self.feedback.current_distance_travelled = self.distance
             self.actionserver.publish_feedback(self.feedback)
 
-
     # shutdownhook to allow ctrl+c to stop the program
+
     def shutdownhook(self):
         self.shutdown_function()
         self.ctrl_c = True
