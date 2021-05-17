@@ -241,7 +241,7 @@ class Task3(object):
                 self.change_vels(0.2, 0)
 
             # true if there is a lot of space to the left, but not in front or the right
-            elif d_front < d_goal and d_left > d_goal and d_right < d_goal:
+            elif self.move_rate == 'fast'  and d_front < d_goal and d_left > d_goal and d_right < d_goal:
                 self.robot_controller.stop()
                 self.change_vels(0.1, 0.7)
 
@@ -258,6 +258,7 @@ class Task3(object):
                         self.change_vels(-1.0, 0.0)
             elif self.targetted and d_front < d_goal-0.05:
                     self.robot_controller.stop()
+                    self.change_vels(0.0, 0.0)
                     self.searching = False
                     print("BEACONING COMPLETE: The robot has now stopped.")
             else:
