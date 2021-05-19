@@ -49,6 +49,9 @@ class Task5(object):
         self.distance_right = 1.0
         self.distance_left = 1.0
         self.object_distance = 1.0
+        self.direct_front = 1.0
+        self.direct_left = 1.0
+        self.direct_right = 1.0
 
         self.robot_controller = MoveTB3()
         self.robot_odom = TB3Odometry()
@@ -233,6 +236,14 @@ class Task5(object):
             print("robot moving forward")
             self.recentre(d_left, d_right)
 
+        elif d_right < 0.4:
+            self.change_vels(0.2, 0.3)
+        elif d_right > 0.5:
+            self.change_vels(0.2, -0.3)
+
+        elif d_front < 0.5 and d_left > 0.5 and d_right > 0.5:
+            self.turn("right")
+
         # if front and left walls too close, turn right
         elif d_front < 0.6 and d_left < 0.55:
             print("robot turning right")
@@ -261,6 +272,8 @@ class Task5(object):
         #         pass
         else:
             pass
+        
+        # self.navigating_maze = False
 
     # method for the robot to explore the arena - used after robot passes the maze
     def explore(self, d_goal, d_front, d_left, d_right):
@@ -331,12 +344,20 @@ class Task5(object):
         else:
             pass
 
+    # system main loop
     def main_loop(self):
         r = rospy.Rate(100)
         
-        # get the target colour from the start zone
+        # get the target colour from the start zone if not found
         if self.target_colour == "none":
             self.get_target_colour()
+            # move the robot out of the start zone then start navigating the maze
+            print("moving out of the start zone")
+            while self.direct_left < 0.5 and self.direct_right < 0.5:
+                self.change_vels(0.2, 0)
+                rospy.sleep(1)
+            print("robot has left the start zone")
+            self.robot_controller.stop()
             self.navigating_maze = True
 
         # naviagate the maze while self.navigating_maze is true
