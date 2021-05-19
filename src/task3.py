@@ -61,8 +61,8 @@ class Task3(object):
         self.move_rate = ''  # fast, slow or stop
         self.target_colour = ''  # blue, red, yellow, green, turquoise or purple
         self.searching = True
-        self.targetted = False
-
+        self.targetting = False
+        
         self.rate = rospy.Rate(5)
 
         self.m00 = 0
@@ -122,11 +122,6 @@ class Task3(object):
         # combine the "left_arc" and "right_arc" data arrays, flip them so that the data is
         # arranged from left (-20 degrees) to right (+20 degrees) then convert to a numpy array
         front_arc = np.array(front_left_arc[::-1] + front_right_arc[::-1])
-
-        small_front_left_arc = scan_data.ranges[0:11]
-        small_front_right_arc = scan_data.ranges[-10:]
-
-        small_front_arc = np.array(small_front_left_arc[::-1] + small_front_right_arc[::-1])
 
         # find the miniumum object distance within the frontal laserscan arc:
         self.distance_front = front_arc.min()
@@ -202,18 +197,22 @@ class Task3(object):
                 # check which side has more space, and change velocities depending on result
                 if d_left > d_right:
                     self.change_vels(0.4, 0.8)
+                    #print("SPACE IN ALL DIRECTIONS - MOVING LEFT")
                 elif d_left < d_right:
                     self.change_vels(0.4, -0.8)
+                    #print("SPACE IN ALL DIRECTIONS - MOVING RIGHT")
 
             # true if there is a lot of space in front and to the left, but not to the right
             elif self.move_rate == 'fast' and d_front > d_goal and d_left > d_goal and d_right < d_goal:
                 self.robot_controller.stop()
                 self.change_vels(0.5, 0.5)
+                #print("TURNING LEFT - STILL SPACE IN FRONT")
 
             # true if there is a lot of space in front and to the right, but not to the left
             elif self.move_rate == 'fast' and d_front > d_goal and d_left < d_goal and d_right > d_goal:
                 self.robot_controller.stop()
                 self.change_vels(0.5, -0.5)
+                #print("TURNING RIGHT - STILL SPACE IN FRONT")
 
             # true if there is not a lot of space in any direction
             elif self.move_rate == 'fast' and d_front < d_goal and d_left < d_goal and d_right < d_goal:
@@ -224,43 +223,48 @@ class Task3(object):
 
                 if d_left > d_right:
                     self.change_vels(0, 2)
+                    #print("NOT MUCH SPACE IN ANY DIRECTION - TURNING LEFT")
                 elif d_left < d_right:
                     self.change_vels(0, -2)
+                    #print("NOT MUCH SPACE IN ANY DIRECTION - TURNING RIGHT")
 
             # true if there is not a lot of space in front, but a lot of space to the left and right
             elif self.move_rate == 'fast' and d_front < d_goal and d_left > d_goal and d_right > d_goal:
                 self.robot_controller.stop()
                 if d_left > d_right:
                     self.change_vels(0.05, 3.5)
+                    #print("NOT MUCH SPACE IN FRONT - TURNING LEFT")
                 elif d_left < d_right:
                     self.change_vels(0.05, -3.5)
+                    #print("NOT MUCH SPACE IN FRONT - TURNING RIGHT")
 
             # true if there is a lot of space to the left and right, but not in front
             elif self.move_rate == 'fast' and d_front > d_goal and d_left < d_goal and d_right < d_goal:
                 self.robot_controller.stop()
                 self.change_vels(0.2, 0)
+                #print("NOT A LOT OF SPACE IN FRONT - MOVING FORWARDS SLOWLY")
 
             # true if there is a lot of space to the left, but not in front or the right
             elif self.move_rate == 'fast'  and d_front < d_goal and d_left > d_goal and d_right < d_goal:
                 self.robot_controller.stop()
-                self.change_vels(0.1, 0.7)
+                self.change_vels(0.1, 0.8)
+                #print("TURNING LEFT - NOT MUCH SPACE IN FRONT")
 
             # true if there is a lot of space to the right, but not in front or the left
             elif self.move_rate == 'fast' and d_front < d_goal and d_left < d_goal and d_right > d_goal:
                 self.robot_controller.stop()
                 self.change_vels(0.1, -0.8)
+                #print("TURNING RIGHT - NOT MUCH SPACE IN FRONT")
             elif self.move_rate == 'slow':
                 print("BEACON DETECTED: Beaconing initiated.")
                 self.robot_controller.stop()
                 self.change_vels(0.3, 0.0)
-                self.targetted = True
-            elif self.targetted and (d_left < 0.275 or d_right < 0.275):
-                        self.change_vels(-1.0, 0.0)
-            elif self.targetted and d_front < d_goal-0.05:
+                self.targetting = True
+            elif self.targetting and (d_front < 0.5 or d_left < 0.2 or d_right < 0.2):
+                    print("BEACONING COMPLETE: The robot has now stopped.")
                     self.robot_controller.stop()
                     self.change_vels(0.0, 0.0)
                     self.searching = False
-                    print("BEACONING COMPLETE: The robot has now stopped.")
             else:
                 continue
 
