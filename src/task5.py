@@ -220,13 +220,13 @@ class Task5(object):
             self.rate.sleep()
         self.robot_controller.set_move_cmd(0.0, 0.0)
 
-    # check the odometry 
-    def check_odom(self):
-        self.distance_from_start = sqrt(pow(
+    # get the displacement of the robot to ensure it doesn't stop at the back of the start zone
+    def get_displacement(self):
+        self.displacement = sqrt(pow(
             self.posx0 - self.robot_odom.posx, 2) + pow(self.posy0 - self.robot_odom.posy, 2))
 
         # return robot displacement
-        return self.distance_from_start
+        return self.displacement
         
     # method for robot to navigate through the maze
     def navigate_maze(self, d_front, d_left, d_right):
@@ -236,7 +236,7 @@ class Task5(object):
             self.turn("backwards")
         # true if there is space in front and to the right
         elif d_front > 0.325 and d_right > 0.325:
-            self.change_vels(0.2, -0.81)
+            self.change_vels(0.185, -0.81)
         # true if there is space in front but not to the right
         elif d_front > 0.325 and d_right < 0.325:
             self.change_vels(0.12, 0.5)
@@ -304,13 +304,13 @@ class Task5(object):
             self.robot_controller.stop()
             self.change_vels(0.1, -0.8)
 
-        elif self.move_rate == 'slow' and self.check_odom > 1.5:
+        elif self.move_rate == 'slow' and self.get_displacement > 1.5:
             print("BEACON DETECTED: Beaconing initiated.")
             self.robot_controller.stop()
             self.change_vels(0.3, 0.0)
             self.targetting = True
 
-        elif self.targetting and (d_front < 0.5 or d_left < 0.2 or d_right < 0.2) and self.check_odom > 1.5:
+        elif self.targetting and (d_front < 0.5 or d_left < 0.2 or d_right < 0.2) and self.get_displacement > 1.5:
             print("BEACONING COMPLETE: The robot has now stopped.")
             self.robot_controller.stop()
             self.change_vels(0.0, 0.0)
@@ -326,18 +326,29 @@ class Task5(object):
         if self.target_colour == "none":
             self.get_target_colour()
             # move the robot out of the start zone and start navigating
-            print("moving out of the start zone")
+            print("moving out of the start zone and re-aligning")
             while self.direct_left < 0.5 and self.direct_right < 0.5:
-                self.change_vels(0.2, 0)
-                rospy.sleep(0.8)
+                self.change_vels(0.1, 0)
+                rospy.sleep(0.5)
             print("robot has left the start zone")
             self.robot_controller.stop()
             self.navigating_maze = True
+            print("starting maze navigation")
 
         # naviagate the maze while self.navigating_maze is true
         while self.navigating_maze:
             self.navigate_maze(self.narrow_distance_front,
                                self.small_distance_left, self.small_distance_right)
+            for i in range(6):
+                mask = cv2.inRange(
+                    self.hsv_img, self.lower[i], self.upper[i])
+                m = cv2.moments(mask)
+                self.m00 = m['m00']
+                if self.m00 > self.m00_min and self.expected_colour[i] != self.target_colour:
+                    print("beacon spotted")
+                    self.navigating_maze = False
+                    self.exploring = True
+                    print("maze navigation finshed - starting to explore and search for the beacon")
 
         # set the robot to exploring the arena while self.exploring is true and in range
         while self.exploring:
@@ -351,7 +362,7 @@ class Task5(object):
             else:
                 self.move_rate = 'fast'
 
-            self.explore(0.6, self.distance_front,
+            self.explore(0.4, self.distance_front,
                          self.distance_left, self.distance_right)
 
     # shutdownhook to allow ctrl+c to stop the program
