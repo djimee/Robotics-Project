@@ -227,7 +227,7 @@ class Task5(object):
 
         # return robot displacement
         return self.displacement
-        
+
     # method for robot to navigate through the maze
     def navigate_maze(self, d_front, d_left, d_right):
         # true if robot is at a dead end and can only turn around
@@ -310,7 +310,7 @@ class Task5(object):
             self.change_vels(0.3, 0.0)
             self.targetting = True
 
-        elif self.targetting and (d_front < 0.5 or d_left < 0.2 or d_right < 0.2) and self.get_displacement > 1.5:
+        elif self.targetting and d_front < 0.5 or d_left < 0.2 or d_right < 0.2 and self.get_displacement > 1.5:
             print("BEACONING COMPLETE: The robot has now stopped.")
             self.robot_controller.stop()
             self.change_vels(0.0, 0.0)
@@ -345,10 +345,11 @@ class Task5(object):
                 m = cv2.moments(mask)
                 self.m00 = m['m00']
                 if self.m00 > self.m00_min and self.expected_colour[i] != self.target_colour:
-                    print("beacon spotted")
+                    rospy.sleep(1.5)
                     self.navigating_maze = False
                     self.exploring = True
-                    print("maze navigation finshed - starting to explore and search for the beacon")
+                    print("maze navigation finshed")
+                    print("starting to explore and search for the beacon")
 
         # set the robot to exploring the arena while self.exploring is true and in range
         while self.exploring:
